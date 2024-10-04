@@ -1,9 +1,8 @@
 import { computed, signal, Signal, untracked } from '@angular/core';
-import { nest } from './deep-signal';
+import { deepLazy, deepSignal } from './deep-signal';
 
 export interface MirrorSignal<T> {
   (): T;
-
   set(value: T): void;
 }
 
@@ -15,5 +14,9 @@ export function mirror<T>(outer: Signal<T>): MirrorSignal<T> {
 }
 
 export function deepMirror<T>(outer: Signal<T>) {
-  return computed(() => nest(outer())());
+  return computed(() => deepSignal(outer())());
+}
+
+export function lazyMirror<T>(outer: Signal<T>) {
+  return computed(() => deepLazy(outer())());
 }

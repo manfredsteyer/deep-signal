@@ -1,4 +1,4 @@
-import { WritableSignal, signal } from '@angular/core';
+import { Signal, WritableSignal, isSignal, signal } from '@angular/core';
 
 export type DeepSignal<Type> = WritableSignal<
   Type extends Array<object>
@@ -10,16 +10,14 @@ export type DeepSignal<Type> = WritableSignal<
       : Type
 >;
 
-export function nest<T>(value: T): DeepSignal<T> {
-  const signalMap = new Map<string | symbol, WritableSignal<unknown>>();
-
-  if (typeof value === 'object') {
+export function deepSignal<T>(value: T): DeepSignal<T> {
+  if (value !== null && typeof value === 'object') {
     const deep = Array.isArray(value)
       ? ([] as Array<DeepSignal<T>>)
       : ({} as Record<string, DeepSignal<T>>);
 
     for (const key of Object.keys(value as Record<string, unknown>)) {
-      (deep as Record<string, unknown>)[key] = nest(
+      (deep as Record<string, unknown>)[key] = deepSignal(
         (value as Record<string, unknown>)[key],
       );
     }
@@ -27,21 +25,46 @@ export function nest<T>(value: T): DeepSignal<T> {
   } else {
     return signal(value) as DeepSignal<T>;
   }
+}
 
-  function getSignal(
-    prop: string | symbol,
-    target: T,
-  ): WritableSignal<unknown> | undefined {
-    if (!signalMap.has(prop)) {
-      const value = (target as any)[prop];
-      const isObject = typeof value === 'object';
-      const s = isObject ? nest(value) : value;
-      signalMap.set(prop, signal(s));
+export function deepLazy<T>(value: T): DeepSignal<T> {
+  if (value !== null && typeof value === 'object') {
+    const deep = Array.isArray(value)
+      ? ([] as Array<DeepSignal<T>>)
+      : ({} as Record<string, DeepSignal<T>>);
+
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      Object.defineProperty(deep, key, {
+        enumerable: true,
+        get: () => {
+          return deepSignal((value as Record<string, unknown>)[key]);
+        },
+      });
     }
-    const s = signalMap.get(prop);
-    return s;
+    return signal(deep) as DeepSignal<T>;
+  } else {
+    return signal(value) as DeepSignal<T>;
   }
 }
 
-const n = nest({ x: 1, b: { c: 2 } });
-console.log('n', n().b().c());
+export function flatten<T>(deep: DeepSignal<T> | Signal<T>): T {
+  const value = deep();
+
+  if (typeof value !== 'object' || !value) {
+    return value as T;
+  }
+
+  let result = Array.isArray(value) ? ([] as T) : ({} as T);
+  for (const key of Object.keys(value)) {
+    if (isSignal((value as Record<string, unknown>)[key])) {
+      (result as Record<string, unknown>)[key] = flatten(
+        (value as Record<string, Signal<unknown>>)[key],
+      );
+    } else {
+      (result as Record<string, unknown>)[key] = (
+        value as Record<string, unknown>
+      )[key];
+    }
+  }
+  return result;
+}

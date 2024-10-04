@@ -1,8 +1,8 @@
 import { Component, computed, effect, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { deepMirror, mirror } from './utils/mirror';
+import { deepMirror, lazyMirror, mirror } from './utils/mirror';
 import './utils/deep-signal';
-import { nest } from './utils/deep-signal';
+import { deepSignal, flatten } from './utils/deep-signal';
 
 @Component({
   selector: 'app-root',
@@ -20,9 +20,9 @@ export class AppComponent {
 
   projected = computed(() => this.mirrored().x * 2);
 
-  nested = nest(this.data());
+  nested = deepSignal(this.data());
 
-  cn = deepMirror(this.data);
+  cn = lazyMirror(this.data);
 
   constructor() {
     effect(() => {
@@ -40,6 +40,13 @@ export class AppComponent {
           z: 18,
         },
       }));
+    });
+
+    setTimeout(() => {
+      this.cn().y().z.set(19);
+    });
+    setTimeout(() => {
+      console.log('flat', flatten(this.cn));
     });
   }
 }
