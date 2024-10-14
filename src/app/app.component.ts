@@ -1,8 +1,17 @@
-import { Component, computed, effect, signal } from '@angular/core';
+import { Component, effect, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { deepMirror, lazyMirror, mirror } from './utils/mirror';
+import { deepMirror } from './utils/mirror';
 import './utils/deep-signal';
-import { deepSignal, flatten } from './utils/deep-signal';
+
+type Inner = {
+  z?: number | null | undefined;
+  a?: number | null | undefined;
+};
+
+type Outer = {
+  x: number | null | undefined;
+  y: Inner | null | undefined;
+}
 
 @Component({
   selector: 'app-root',
@@ -14,39 +23,16 @@ import { deepSignal, flatten } from './utils/deep-signal';
 export class AppComponent {
   title = 'reactive-helpers';
 
-  data = signal({ x: 1, y: { z: 2, a: 1 } });
-  readOnly = this.data.asReadonly();
-  mirrored = mirror(this.readOnly);
-
-  projected = computed(() => this.mirrored().x * 2);
-
-  nested = deepSignal(this.data());
-
-  cn = lazyMirror(this.data);
+  data = signal<Outer>({ x: 1, y: { z: null, a: 1 } });
+  deep = deepMirror(this.data);
 
   constructor() {
     effect(() => {
-      console.log('computedNested', this.cn().y().z());
+      console.log('computedNested', this.deep().y()?.z?.());
     });
 
     setTimeout(() => {
-      this.cn().y().z.set(17);
-    });
-    setTimeout(() => {
-      this.data.update((data) => ({
-        ...data,
-        y: {
-          ...data.y,
-          z: 18,
-        },
-      }));
-    });
-
-    setTimeout(() => {
-      this.cn().y().z.set(19);
-    });
-    setTimeout(() => {
-      console.log('flat', flatten(this.cn));
+      this.deep().y()?.z?.set(17);
     });
   }
 }
